@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import {
+  GenderEnum,
+  ProviderEnum,
+  RoleEnum,
+} from "../../common/enum/user.enum.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -7,14 +12,14 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
       minLength: 2,
-      maxLength: 5,
+      maxLength: 15,
     },
     lName: {
       type: String,
       required: true,
       trim: true,
       minLength: 2,
-      maxLength: 5,
+      maxLength: 15,
     },
     email: {
       type: String,
@@ -23,13 +28,39 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
-    password: { type: String, required: true, trim: true },
-    age: { type: Number, required: true, min: 20, max: 60 },
-    gender: { type: String, enum: ["male", "female"], default: "male" },
+    password: {
+      type: String,
+      required: function () {
+        return this.provider == ProviderEnum.system ? true : false;
+      },
+      trim: true,
+    },
+    age: {
+      type: Number,
+      required: function () {
+        return this.provider == ProviderEnum.system ? true : false;
+      },
+      min: 20,
+      max: 60,
+    },
+    role: {
+      type: String,
+      enum: Object.values(RoleEnum),
+      default: RoleEnum.user,
+    },
+    gender: {
+      type: String,
+      enum: Object.values(GenderEnum),
+      default: GenderEnum.male,
+    },
     phone: String,
     profileImage: String,
     isConfirmed: { type: Boolean, default: false },
-    provider: { type: String, enum: ["system", "google"], default: "system" },
+    provider: {
+      type: String,
+      enum: Object.values(ProviderEnum),
+      default: ProviderEnum.system,
+    },
   },
   {
     timestamps: true,
