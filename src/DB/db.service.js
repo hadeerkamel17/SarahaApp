@@ -10,11 +10,11 @@ export const findById = async ({ model, id, options = {} } = {}) => {
   return await model.findById(id, options);
 };
 
-export const findByIdAndUdate = async ({
+export const findByIdAndUpdate = async ({
   model,
   id,
   update,
   options = {},
 } = {}) => {
-  return await model.findByIdAndUdate(id, update, { new: true, ...options });
+  return await model.findByIdAndUpdate(id, update, { new: true, ...options });
 };

@@ -6,6 +6,7 @@ const app = express();
 const port = 3000;
 const bootstrap = async () => {
   await connectionDB();
+
   app.use(cors({ origin: "*" }));
   app.use(express.json());
   app.get("/", (req, res, next) => {

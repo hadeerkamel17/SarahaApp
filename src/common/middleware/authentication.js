@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import userModel from "../../DB/models/user.model.js";
 import { findOne } from "../../DB/db.service.js";
+import revokeTokenModel from "../../DB/models/revokeToken.model.js";
 
 export const authentication = async (req, res, next) => {
   const { authorization } = req.headers;
@@ -20,6 +21,18 @@ export const authentication = async (req, res, next) => {
     // return res.status(404).json({ message: "Email not exist" });
     throw new Error("Email not exist", { cause: 404 });
   }
+  if (user?.changeCradentialAt?.getTime() > decoded.iat * 1000) {
+    throw new Error("token expired you should sign in again", { cause: 401 });
+  }
+  if (
+    await findOne({
+      model: revokeTokenModel,
+      filter: { tokenId: decoded.jti },
+    })
+  ) {
+    throw new Error("token revoked you should sign in again", { cause: 401 });
+  }
   req.user = user;
+  req.decoded = decoded;
   next();
 };

@@ -55,7 +55,9 @@ const userSchema = new mongoose.Schema(
     },
     phone: String,
     profileImage: String,
+    coverImages: [String],
     isConfirmed: { type: Boolean, default: false },
+    changeCradentialAt: Date,
     provider: {
       type: String,
       enum: Object.values(ProviderEnum),
