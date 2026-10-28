@@ -1,28 +1,26 @@
-import { randomInt } from "node:crypto";
+// import { randomInt } from "node:crypto";
 import nodemailer from "nodemailer";
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "hadeerkamel00@gmail.com",
-    pass: "sjdlknhfvnvyurer",
-  },
-});
-export const sendEmail = async ({
-  to,
-  subject,
-  html = "",
-  attachments = [],
-}) => {
-  const info = await transporter.sendEmail({
-    from: '"hadeer" <hadeerkamel00@gmail.com>',
+import { randomInt } from "node:crypto";
+const sendEmail = async ({ to, subject, html, attachments } = {}) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "hadeerkamel00@gmail.com",
+      pass: "euhimdoyanyiprhm",
+    },
+  });
+
+  const info = await transporter.sendMail({
+    from: '"Deroooo" <hadeerkamel00@gmail.com>',
     to,
     subject,
-    html,
-    attachments,
+    html: html || "<b>Hello world?</b>",
+    attachments: attachments || [],
   });
-  console.log(info.messageId);
-  return info;
+  return info.accepted.length > 0 ? true : false;
 };
+
 export const generate_otp = async () => {
   return randomInt(100000, 1000000).toString();
 };
+export default sendEmail;

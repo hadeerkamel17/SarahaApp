@@ -1,21 +1,27 @@
 import userModel from "../../DB/models/user.model.js";
-import * as dbServices from "../../DB/db.service.js";
+import * as dbServices from "../../DB/service/db.service.js";
 import { Decrypt, Encrypt } from "../../common/security/encrpt.js";
 import { compare, hash } from "../../common/security/hash.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { ProviderEnum } from "../../common/enum/user.enum.js";
 import { validation } from "../../common/middleware/validation.js";
-import { hashSync } from "bcrypt";
-import { generate_otp } from "../../common/service/sendEmail.js";
+import { compareSync, hashSync } from "bcrypt";
+import sendEmail, { generate_otp } from "../../common/service/sendEmail.js";
 import { randomUUID } from "node:crypto";
-import revokeTokenModel from "../../DB/models/revokeToken.model.js";
+import {
+  deleteKey,
+  getValue,
+  keys,
+  setValue,
+} from "../../DB/service/redis.service.js";
+import { eventEmitter } from "../../common/utlis/events.js";
+// import revokeTokenModel from "../../DB/models/revokeToken.model.js";
 const client = new OAuth2Client();
 
 export const SignUp = async (req, res, next) => {
   console.log(req.files);
   const { fName, lName, email, password, age, gender, phone } = req.body;
-
   const userExist = await userModel.findOne({ email: email.toLowerCase() });
   if (userExist) {
     // return res.status(404).json({ message: "email already exist" });
@@ -25,6 +31,22 @@ export const SignUp = async (req, res, next) => {
   for (const file of req.files.attachments) {
     paths.push(file.path);
   }
+
+  const otp = await generate_otp();
+  const otpHash = hashSync(otp, 12);
+  await setValue({
+    key: `otp::${email}`,
+    value: otpHash,
+    ttl: 60 * 20,
+  });
+
+  eventEmitter.emit("confirm_email", async () => {
+    await sendEmail({
+      to: email,
+      subject: "confirm email",
+      html: `<h1>otp:${otp}</h1>`,
+    });
+  });
 
   const user = await dbServices.create({
     model: userModel,
@@ -88,12 +110,46 @@ export const SignUpWithGoogle = async (req, res, next) => {
   }
 };
 
+export const confirmEmail = async (req, res, next) => {
+  const { email, otp } = req.body;
+  const otpValue = await getValue(`otp::${email}`);
+  if (!otpValue) {
+    throw new Error("otp expire", { cause: 400 });
+  }
+
+  if (!compareSync(otp, otpValue)) {
+    throw new Error("invalid otp", { cause: 400 });
+  }
+  const user = await dbServices.findOneAndUpdate({
+    model: userModel,
+    filter: {
+      email,
+      isConfirmed: false,
+    },
+    update: {
+      isConfirmed: true,
+    },
+  });
+  if (!user) {
+    // return res.status(404).json({ message: "Email not exist" });
+    throw new Error("User not exist or already confirmed", { cause: 400 });
+  }
+  await deleteKey(`otp::${email}`);
+  return res.status(200).json({
+    message: "Done",
+    user,
+  });
+};
 export const SignIn = async (req, res, next) => {
   const { email, password } = req.body;
 
   const user = await dbServices.findOne({
     model: userModel,
-    filter: { email: email.toLowerCase(), provider: ProviderEnum.system },
+    filter: {
+      email: email.toLowerCase(),
+      provider: ProviderEnum.system,
+      isConfirmed: true,
+    },
   });
   if (!user) {
     // return res.status(404).json({ message: "Email not exist" });
@@ -225,15 +281,22 @@ export const logout = async (req, res, next) => {
   if (flag == "all") {
     req.user.changeCradentialAt = new Date();
     await req.user.save();
+    await deleteKey(await keys(`revoke_token::${req.user._id}`));
   } else {
-    await dbServices.create({
-      model: revokeTokenModel,
-      data: {
-        userId: req.user._id,
-        tokenId: req.decoded.jti,
-        expireAt: new Date(req.decoded.exp * 1000), // Set the expiration time to 1 hour from now
-      },
+    console.log(req.decoded.exp - Math.floor(Date.now() / 1000));
+    await setValue({
+      key: `revoke_token::${req.user._id}::${req.decoded.jti}`,
+      value: `${req.decoded.jti}`,
+      ttl: req.decoded.exp - Math.floor(Date.now() / 1000),
     });
+    // await dbServices.create({
+    //   model: revokeTokenModel,
+    //   data: {
+    //     userId: req.user._id,
+    //     tokenId: req.decoded.jti,
+    //     expireAt: new Date(req.decoded.exp * 1000), // Set the expiration time to 1 hour from now
+    //   },
+    // });
   }
   req.user.phone = Decrypt(req.user.phone);
 

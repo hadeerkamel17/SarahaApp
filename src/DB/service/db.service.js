@@ -18,3 +18,16 @@ export const findByIdAndUpdate = async ({
 } = {}) => {
   return await model.findByIdAndUpdate(id, update, { new: true, ...options });
 };
+
+export const findOneAndUpdate = async ({
+  model,
+  filter,
+  update,
+  options = {},
+} = {}) => {
+  return await model.findOneAndUpdate(filter, update, {
+    new: true,
+    runValidators: true,
+    ...options,
+  });
+};

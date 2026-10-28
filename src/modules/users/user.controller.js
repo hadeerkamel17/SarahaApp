@@ -11,6 +11,7 @@ import {
   shareProfileSchema,
   updateprofileSchema,
   updatepasswordSchema,
+  confirmEmailSchema,
 } from "./user.validation.js";
 import { multerLocal } from "../../common/middleware/multer.js";
 const userRouter = Router();
@@ -61,6 +62,11 @@ userRouter.patch(
   validation(updatepasswordSchema),
   authentication,
   US.updatePassword,
+);
+userRouter.patch(
+  "/confirm-email",
+  validation(confirmEmailSchema),
+  US.confirmEmail,
 );
 userRouter.patch("/logout", authentication, US.logout);
 export default userRouter;

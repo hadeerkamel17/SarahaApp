@@ -45,6 +45,18 @@ export const signInSchema = {
     })
     .required(),
 };
+
+export const confirmEmailSchema = {
+  body: joi
+    .object({
+      email: joi.string().required(),
+      otp: joi
+        .string()
+        .pattern(/^[0-9]{6}$/)
+        .required(),
+    })
+    .required(),
+};
 export const refreshTokenSchema = {
   headers: generalRules.token.required(),
 };
