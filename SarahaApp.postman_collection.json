@@ -1,0 +1,319 @@
+{
+  "info": {
+    "_postman_id": "4b9d42f9-5a89-4208-a69a-ac243c98a5fe",
+    "name": "SarahaApp",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51023933"
+  },
+  "item": [
+    {
+      "name": "SignUp",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "fName",
+              "value": "ggggg",
+              "type": "text"
+            },
+            {
+              "key": "lName",
+              "value": "ggggg",
+              "type": "text"
+            },
+            {
+              "key": "email",
+              "value": "hadeerkamel00@gmail.com",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "vfdcccsdc",
+              "type": "text"
+            },
+            {
+              "key": "age",
+              "value": "23",
+              "type": "text"
+            },
+            {
+              "key": "gender",
+              "value": "male",
+              "type": "text"
+            },
+            {
+              "key": "phone",
+              "value": "01023329444",
+              "type": "text"
+            },
+            {
+              "key": "cPassword",
+              "value": "vfdcccsdc",
+              "type": "text"
+            },
+            {
+              "key": "attachments",
+              "type": "file",
+              "src": [
+                "/C:/Users/DELL/Downloads/Untitled.png",
+                "/C:/Users/DELL/Downloads/Untitled3.png"
+              ]
+            },
+            {
+              "key": "attachment",
+              "type": "file",
+              "src": [
+                "/C:/Users/DELL/Downloads/Untitled.png"
+              ]
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{local_url}}/users/signup?flag=no",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "signup"
+          ],
+          "query": [
+            {
+              "key": "flag",
+              "value": "no"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SignIn",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let response =pm.response.json();\r\nconsole.log(response)\r\npm.environment.set(\"access_token\", response.tokens.access_token);\r\npm.environment.set(\"refresh_token\", response.tokens.refresh_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\"email\": \"hgh@gmail.com\",\r\n  \"password\": \"vfdcccsdc\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{local_url}}/users/signin",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "signin"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "confirmEmail",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let response =pm.response.json();\r\nconsole.log(response)\r\npm.environment.set(\"access_token\", response.tokens.access_token);\r\npm.environment.set(\"refresh_token\", response.tokens.refresh_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\"email\": \"hadeerkamel00@gmail.com\",\r\n  \"otp\": \"245858\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{local_url}}/users/confirm-email",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "confirm-email"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getProfile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "authorization",
+            "value": "{{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{local_url}}/users/profile",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "refreshToken",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "authorization",
+            "value": "{{json_web_token_0ccp}}"
+          }
+        ],
+        "url": {
+          "raw": "{{local_url}}/users/refresh-token",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "refresh-token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "updateProfile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "authorization",
+            "value": "{{access_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"phone\":\"01234567890\",\r\n    \"age\":36\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{local_url}}/users/update-profile",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "update-profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "updatePassword",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "authorization",
+            "value": "{{access_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"oldPassword\":\"dfff\",\r\n    \"newPassword\":\"dfffv\",\r\n    \"cPassword\":\"dfffv\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{local_url}}/users/update-password",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "update-password"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "logout",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "authorization",
+            "value": "{{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{local_url}}/users/logout?flag=all",
+          "host": [
+            "{{local_url}}"
+          ],
+          "path": [
+            "users",
+            "logout"
+          ],
+          "query": [
+            {
+              "key": "flag",
+              "value": "all"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "json_web_token_1c32",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_0ccp",
+      "secret": true
+    }
+  ]
+}
