@@ -22,6 +22,11 @@ export const authentication = async (req, res, next) => {
     // return res.status(404).json({ message: "Email not exist" });
     throw new Error("Email not exist", { cause: 404 });
   }
+
+  if (user?.isConfirmed) {
+    // return res.status(404).json({ message: "Email not exist" });
+    throw new Error("user not confirmed yet");
+  }
   if (user?.changeCradentialAt?.getTime() > decoded.iat * 1000) {
     throw new Error("token expired you should sign in again", { cause: 401 });
   }

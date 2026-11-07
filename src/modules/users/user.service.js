@@ -12,13 +12,17 @@ import { randomUUID } from "node:crypto";
 import {
   deleteKey,
   getValue,
+  incr,
   keys,
   setValue,
+  ttl,
 } from "../../DB/service/redis.service.js";
 import { eventEmitter } from "../../common/utlis/events.js";
-// import revokeTokenModel from "../../DB/models/revokeToken.model.js";
+import { emailTemplate } from "../../common/utlis/email.template.js";
+import { generateTokens, sendEmailOtp, sendOtpByKey } from "./user.helper.js";
+import { successResponse } from "../../common/utlis/response.success.js"; // import revokeTokenModel from "../../DB/models/revokeToken.model.js";
 const client = new OAuth2Client();
-
+/*---------------------------------SignUp---------------------------------*/
 export const SignUp = async (req, res, next) => {
   console.log(req.files);
   const { fName, lName, email, password, age, gender, phone } = req.body;
@@ -40,11 +44,17 @@ export const SignUp = async (req, res, next) => {
     ttl: 60 * 20,
   });
 
+  await setValue({
+    key: `otp::max::${email}`,
+    value: 1,
+    ttl: 60 * 5,
+  });
+
   eventEmitter.emit("confirm_email", async () => {
     await sendEmail({
       to: email,
       subject: "confirm email",
-      html: `<h1>otp:${otp}</h1>`,
+      html: emailTemplate(otp),
     });
   });
 
@@ -60,10 +70,19 @@ export const SignUp = async (req, res, next) => {
       phone: phone ? Encrypt(phone) : undefined,
       profileImage: req.files.attachment[0].path,
       coverImages: paths,
+      isConfirmed: false,
     },
   });
-  return res.status(201).json({ message: "Done", user });
+  return successResponse({ res, status: 201, data: { user } });
 };
+/*---------------------------------reSendOtp---------------------------------*/
+
+export const reSendOtp = async (req, res, next) => {
+  const { email } = req.body;
+  await sendEmailOtp({ email, isConfirmed: false });
+  return successResponse({ res, status: 201 });
+};
+/*---------------------------------SignUpWithGoogle---------------------------------*/
 
 export const SignUpWithGoogle = async (req, res, next) => {
   const { idToken } = req.body;
@@ -103,12 +122,14 @@ export const SignUpWithGoogle = async (req, res, next) => {
       { id: user._id, email: user.email },
       "ali123",
     );
-    return res.status(201).json({
-      message: "done",
-      tokens: { access_token, refresh_token },
+    return successResponse({
+      res,
+      status: 201,
+      data: { tokens: { access_token, refresh_token } },
     });
   }
 };
+/*---------------------------------confirmEmail---------------------------------*/
 
 export const confirmEmail = async (req, res, next) => {
   const { email, otp } = req.body;
@@ -124,10 +145,10 @@ export const confirmEmail = async (req, res, next) => {
     model: userModel,
     filter: {
       email,
-      isConfirmed: false,
+      isConfirmed: { $exists: false },
     },
     update: {
-      isConfirmed: true,
+      isConfirmed: { $exists: true },
     },
   });
   if (!user) {
@@ -135,62 +156,148 @@ export const confirmEmail = async (req, res, next) => {
     throw new Error("User not exist or already confirmed", { cause: 400 });
   }
   await deleteKey(`otp::${email}`);
-  return res.status(200).json({
-    message: "Done",
-    user,
-  });
+  return successResponse({ res, data: { user } });
 };
+/*---------------------------------SignIn---------------------------------*/
+
 export const SignIn = async (req, res, next) => {
   const { email, password } = req.body;
+  const lowerEmail = email.toLowerCase();
+
+  const banTTL = await ttl(`login::ban::${lowerEmail}`);
+  if (banTTL > 0) {
+    throw new Error(
+      `account temporarily banned, try again after ${banTTL} seconds`,
+      { cause: 403 },
+    );
+  }
 
   const user = await dbServices.findOne({
     model: userModel,
     filter: {
-      email: email.toLowerCase(),
+      email: lowerEmail,
       provider: ProviderEnum.system,
-      isConfirmed: true,
+      isConfirmed: { $exists: true },
     },
   });
   if (!user) {
-    // return res.status(404).json({ message: "Email not exist" });
-    throw new Error("Email not exist");
+    throw new Error("Email not exist", { cause: 404 });
   }
-  if (!(await compare(password, user.password))) {
-    // return res.status(400).json({ message: "Invalid Password" });
-    throw new Error("Invalid Password", { cause: 400 });
-  }
-  // if (user.isConfirmed !== true) {
-  //   return res.status(400).json({ message: "email not conirmed" });
-  // }
-  const tokenId = randomUUID();
-  const access_token = jwt.sign(
-    { id: user._id, email: user.email },
-    "ahmed123",
-    {
-      expiresIn: 60 * 5,
-      audience: "http://localhost:4000",
-      issuer: "http://localhost:3000",
-      jwtid: tokenId,
-      // notBefore: 30,
-      // noTimestamp: true,
-    },
-  );
-  const refresh_token = jwt.sign(
-    { id: user._id, email: user.email },
-    "ali123",
-    { expiresIn: 60 * 60, jwtid: tokenId },
-  );
 
-  return res.status(201).json({
+  if (!(await compare(password, user.password))) {
+    const failCount = await incr(`login::fail::${lowerEmail}`);
+    if (failCount >= 5) {
+      await setValue({
+        key: `login::ban::${lowerEmail}`,
+        value: "1",
+        ttl: 60 * 5,
+      });
+      await deleteKey(`login::fail::${lowerEmail}`);
+      throw new Error("5 failed attempts, account banned for 5 minutes", {
+        cause: 403,
+      });
+    }
+    throw new Error(`Invalid Password, ${5 - failCount} attempts left`, {
+      cause: 400,
+    });
+  }
+
+  await deleteKey(`login::fail::${lowerEmail}`);
+
+  if (user.twoStepVerification) {
+    await sendOtpByKey({
+      email: lowerEmail,
+      key: `otp::login::${lowerEmail}`,
+      subject: "login verification code",
+    });
+    return successResponse({
+      res,
+      message: "OTP sent to your email, confirm login to get your tokens",
+    });
+  }
+
+  return successResponse({
+    res,
+    status: 201,
     message: "SignIn Successfully",
-    tokens: { access_token, refresh_token },
-    user: { ...user._doc, phone: Decrypt(user.phone) },
+    data: {
+      tokens: generateTokens(user),
+      user: {
+        ...user._doc,
+        phone: user.phone ? Decrypt(user.phone) : undefined,
+      },
+    },
   });
 };
 
-export const getProfile = async (req, res, next) => {
-  return res.status(200).json({ message: "done", user: req.user });
+/*---------------------------------confirmLogin---------------------------------*/
+export const confirmLogin = async (req, res, next) => {
+  const { email, otp } = req.body;
+  const lowerEmail = email.toLowerCase();
+  const otpHash = await getValue(`otp::login::${lowerEmail}`);
+  if (!otpHash) throw new Error("otp expired", { cause: 400 });
+  if (!compareSync(otp, otpHash))
+    throw new Error("invalid otp", { cause: 400 });
+
+  const user = await dbServices.findOne({
+    model: userModel,
+    filter: { email: lowerEmail, provider: ProviderEnum.system },
+  });
+  if (!user) throw new Error("Email not exist", { cause: 404 });
+
+  await deleteKey(`otp::login::${lowerEmail}`);
+  return successResponse({
+    res,
+    status: 201,
+    message: "SignIn Successfully",
+    data: {
+      tokens: generateTokens(user),
+      user: {
+        ...user._doc,
+        phone: user.phone ? Decrypt(user.phone) : undefined,
+      },
+    },
+  });
 };
+
+/*---------------------------------enableTwoStep---------------------------------*/
+export const enableTwoStep = async (req, res, next) => {
+  if (req.user.twoStepVerification) {
+    throw new Error("2-step-verification already enabled", { cause: 400 });
+  }
+  await sendOtpByKey({
+    email: req.user.email,
+    key: `otp::2sv::${req.user.email}`,
+    subject: "enable 2-step-verification",
+  });
+  return successResponse({
+    res,
+    message: "OTP sent to your email to enable 2-step-verification",
+  });
+};
+
+/*---------------------------------verifyTwoStep---------------------------------*/
+export const verifyTwoStep = async (req, res, next) => {
+  const { otp } = req.body;
+  const otpHash = await getValue(`otp::2sv::${req.user.email}`);
+  if (!otpHash) throw new Error("otp expired", { cause: 400 });
+  if (!compareSync(otp, otpHash))
+    throw new Error("invalid otp", { cause: 400 });
+
+  req.user.twoStepVerification = true;
+  await req.user.save();
+  await deleteKey(`otp::2sv::${req.user.email}`);
+  return successResponse({
+    res,
+    message: "2-step-verification enabled successfully",
+  });
+};
+/*---------------------------------getProfile---------------------------------*/
+
+export const getProfile = async (req, res, next) => {
+  return successResponse({ res, data: { user: req.user } });
+};
+/*---------------------------------refreshToken---------------------------------*/
 
 export const refreshToken = async (req, res, next) => {
   const { authorization } = req.headers;
@@ -219,8 +326,10 @@ export const refreshToken = async (req, res, next) => {
       expiresIn: 60 * 5,
     },
   );
-  return res.status(200).json({ message: "done", access_token });
+  return successResponse({ res, data: { access_token } });
 };
+/*---------------------------------shareProfile---------------------------------*/
+
 export const shareProfile = async (req, res, next) => {
   const { id } = req.params;
   let user = await dbServices.findById({
@@ -232,8 +341,9 @@ export const shareProfile = async (req, res, next) => {
     throw new Error("user not found", { cause: 404 });
   }
   user.phone = Decrypt(user.phone);
-  return res.status(200).json({ message: "done", user });
+  return successResponse({ res, data: { user } });
 };
+/*---------------------------------updateProfile---------------------------------*/
 
 export const updateProfile = async (req, res, next) => {
   const { fName, lName, age, gender, phone } = req.body;
@@ -260,8 +370,9 @@ export const updateProfile = async (req, res, next) => {
   });
   req.user.phone = Decrypt(req.user.phone);
 
-  return res.status(200).json({ message: "done", user: req.user });
+  return successResponse({ res, data: { user: req.user } });
 };
+/*---------------------------------updatePassword---------------------------------*/
 
 export const updatePassword = async (req, res, next) => {
   const { oldPassword, newPassword } = req.body;
@@ -273,8 +384,9 @@ export const updatePassword = async (req, res, next) => {
   req.user.phone = Decrypt(req.user.phone);
 
   await req.user.save();
-  return res.status(200).json({ message: "done", user: req.user });
+  return successResponse({ res, data: { user: req.user } });
 };
+/*---------------------------------logout---------------------------------*/
 
 export const logout = async (req, res, next) => {
   const { flag } = req.query;
@@ -300,5 +412,35 @@ export const logout = async (req, res, next) => {
   }
   req.user.phone = Decrypt(req.user.phone);
 
-  return res.status(200).json({ message: "done" });
+  return successResponse({ res, message: "logged out" });
+};
+
+export const forgetPassword = async (req, res, next) => {
+  const { email } = req.body;
+  await sendEmailOtp({ email, isConfirmed: true });
+  return successResponse({ res, status: 201 });
+};
+
+export const resetPassword = async (req, res, next) => {
+  const { email, code, password } = req.body;
+  const otp = await getValue(`otp::${email}`);
+  if (!otp) {
+    throw new Error("otp expire", { cause: 400 });
+  }
+  if (!compareSync(code, otp)) {
+    throw new Error("invalid otp", { cause: 400 });
+  }
+  const user = await dbServices.findOneAndUpdate({
+    model: userModel,
+    filter: { email, isConfirmed: { $exists: true } },
+    update: {
+      password: hashSync(password, 12),
+      changeCradentialAt: new Date(),
+    },
+  });
+  if (!user) {
+    throw new Error("user not exist", { cause: 400 });
+  }
+  await deleteKey(`otp::${email}`);
+  return successResponse({ res, status: 201 });
 };

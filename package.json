@@ -4,8 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "cross-env NODE_ENV=production node src/index.js ",
+    "dev": "cross-env NODE_ENV=development node src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -14,8 +14,12 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
+    "dotenv": "^18.0.9",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.3",
     "google-auth-library": "^11.1.0",
+    "helmet": "^8.3.0",
     "joi": "^18.2.9",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.3",

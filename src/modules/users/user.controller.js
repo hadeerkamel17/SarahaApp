@@ -12,9 +12,17 @@ import {
   updateprofileSchema,
   updatepasswordSchema,
   confirmEmailSchema,
+  resendOtpSchema,
+  forgetPasswordSchema,
+  resetPasswordSchema,
+  verifyTwoStepSchema,
+  confirmLoginSchema,
 } from "./user.validation.js";
 import { multerLocal } from "../../common/middleware/multer.js";
-const userRouter = Router();
+import messageRouter from "../message/message.controller.js";
+const userRouter = Router({ strict: true, caseSensitive: true });
+userRouter.use("/:userId/messages", messageRouter);
+
 userRouter.post(
   "/signup",
 
@@ -33,6 +41,18 @@ userRouter.post(
 );
 userRouter.post("/signup/gmail", US.SignUpWithGoogle);
 userRouter.post("/signin", validation(signInSchema), US.SignIn);
+userRouter.post(
+  "/signin/confirm",
+  validation(confirmLoginSchema),
+  US.confirmLogin,
+);
+userRouter.post("/enable-2sv", authentication, US.enableTwoStep);
+userRouter.patch(
+  "/verify-2sv",
+  authentication,
+  validation(verifyTwoStepSchema),
+  US.verifyTwoStep,
+);
 userRouter.get(
   "/profile",
   authentication,
@@ -68,5 +88,17 @@ userRouter.patch(
   validation(confirmEmailSchema),
   US.confirmEmail,
 );
+userRouter.post("/resend-otp", validation(resendOtpSchema), US.reSendOtp);
+userRouter.patch(
+  "/forget-password",
+  validation(forgetPasswordSchema),
+  US.forgetPassword,
+);
+userRouter.patch(
+  "/reset-password",
+  validation(resetPasswordSchema),
+  US.resetPassword,
+);
+
 userRouter.patch("/logout", authentication, US.logout);
 export default userRouter;
