@@ -20,11 +20,14 @@ import {
 import { eventEmitter } from "../../common/utlis/events.js";
 import { emailTemplate } from "../../common/utlis/email.template.js";
 import { generateTokens, sendEmailOtp, sendOtpByKey } from "./user.helper.js";
-import { successResponse } from "../../common/utlis/response.success.js"; // import revokeTokenModel from "../../DB/models/revokeToken.model.js";
+import { successResponse } from "../../common/utlis/response.success.js";
+import {
+  ACCESS_TOKEN_SECRET,
+  REFRESH_TOKEN_SECRET,
+} from "../../../config/config.service.js";
 const client = new OAuth2Client();
 /*---------------------------------SignUp---------------------------------*/
 export const SignUp = async (req, res, next) => {
-  console.log(req.files);
   const { fName, lName, email, password, age, gender, phone } = req.body;
   const userExist = await userModel.findOne({ email: email.toLowerCase() });
   if (userExist) {
@@ -87,8 +90,6 @@ export const reSendOtp = async (req, res, next) => {
 export const SignUpWithGoogle = async (req, res, next) => {
   const { idToken } = req.body;
 
-  console.log(idToken);
-
   const decoded = await client.verifyIdToken({
     idToken,
     audience:
@@ -113,14 +114,17 @@ export const SignUpWithGoogle = async (req, res, next) => {
 
     const access_token = jwt.sign(
       { id: user._id, email: user.email },
-      "ahmed123",
+      ACCESS_TOKEN_SECRET,
       {
         expiresIn: 60 * 5,
       },
     );
     const refresh_token = jwt.sign(
       { id: user._id, email: user.email },
-      "ali123",
+      REFRESH_TOKEN_SECRET,
+      {
+        expiresIn: 60 * 60 * 24 * 7, // 1 week
+      },
     );
     return successResponse({
       res,
@@ -321,7 +325,7 @@ export const refreshToken = async (req, res, next) => {
 
   const access_token = jwt.sign(
     { id: user._id, email: user.email },
-    "ahmed123",
+    ACCESS_TOKEN_SECRET,
     {
       expiresIn: 60 * 5,
     },

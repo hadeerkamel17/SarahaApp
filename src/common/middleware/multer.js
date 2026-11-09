@@ -10,17 +10,14 @@ export const multerLocal = ({ customPath = "general", customTypes = [] }) => {
 
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      console.log("destination:", file);
       cb(null, fullPath);
     },
     filename: (req, file, cb) => {
-      console.log("filename", file);
       cb(null, randomUUID() + "__" + file.originalname);
     },
   });
 
   function fileFilter(req, file, cb) {
-    console.log(file);
     if (!customTypes.includes(file.mimetype)) {
       cb(new Error("Invalid file!"));
     } else {

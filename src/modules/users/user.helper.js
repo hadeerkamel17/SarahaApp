@@ -13,6 +13,10 @@ import sendEmail, { generate_otp } from "../../common/service/sendEmail.js";
 import { hashSync } from "bcrypt";
 import { eventEmitter } from "../../common/utlis/events.js";
 import { emailTemplate } from "../../common/utlis/email.template.js";
+import {
+  ACCESS_TOKEN_SECRET,
+  REFRESH_TOKEN_SECRET,
+} from "../../../config/config.service.js";
 
 export const sendEmailOtp = async ({
   email,
@@ -95,7 +99,7 @@ export const generateTokens = (user) => {
   const tokenId = randomUUID();
   const access_token = jwt.sign(
     { id: user._id, email: user.email },
-    "ahmed123",
+    ACCESS_TOKEN_SECRET,
     {
       expiresIn: "1d",
       audience: "http://localhost:4000",
@@ -105,7 +109,7 @@ export const generateTokens = (user) => {
   );
   const refresh_token = jwt.sign(
     { id: user._id, email: user.email },
-    "ali123",
+    REFRESH_TOKEN_SECRET,
     { expiresIn: "1d", jwtid: tokenId },
   );
   return { access_token, refresh_token };
